@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FTC Roadrunner Visual Path Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="main-section">
+      <div class="header">
+        <h1>FTC Roadrunner Visual Path Planner</h1>
+        <div class="controls">
+          <button class="btn-mode active" id="splineBtn" onclick="setMode('spline')">Spline Mode</button>
+          <button class="btn-mode" id="linearBtn" onclick="setMode('linear')">Linear Mode</button>
+          <button class="btn-finalize" id="finalizeBtn" onclick="finalizePath()" disabled>
+            ➕ Finalize Path
+          </button>
+          <button class="btn-animate" id="animateBtn" onclick="animatePath()" disabled>
+            ▶️ Animate
+          </button>
+          <button class="btn-export" onclick="exportCode()">
+            ⬇️ Export Code
+          </button>
+          <button class="btn-export" onclick="document.getElementById('fileInput').click()" style="background: #059669;">
+            📁 Upload Code
+          </button>
+          <input type="file" id="fileInput" accept=".java" style="display: none;" onchange="handleFileUpload(event)">
+          <button class="btn-export" onclick="openPasteModal()" style="background: #059669;">
+            📋 Paste Code
+          </button>
+          <button class="btn-undo" id="undoBtn" onclick="undo()" disabled>
+            ↶ Undo
+          </button>
+          <button class="btn-redo" id="redoBtn" onclick="redo()" disabled>
+            ↷ Redo
+          </button>
+          <button class="btn-clear" onclick="clearAll()">
+            🗑️ Clear All
+          </button>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <h2>Controls</h2>
+
+      <div class="section">
+        <h3>Active Robot</h3>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+          <button class="btn-robot active" data-robot="0" onclick="switchRobot(0)">Robot 1</button>
+          <button class="btn-robot" data-robot="1" onclick="switchRobot(1)">Robot 2</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Robot Configuration</h3>
+        <label>
+          Name: <input type="text" id="robotName" value="Robot 1" onchange="updateRobotName()" style="width: 140px;">
+        </label>
+        <label>
+          Color: <input type="color" id="robotColor" value="#4CAF50" onchange="updateRobotColor()" style="width: 80px; height: 30px; cursor: pointer;">
+        </label>
+      </div>
+
+      <div class="section">
+        <h3>Robot Position</h3>
+        <div class="info-text" style="margin-bottom: 0.5rem;">Drag robot on canvas or enter values:</div>
+        <div class="info-text" style="margin-bottom: 0.5rem; font-size: 0.75rem;">Field: 144×144 in, Center at (0,0), Range: -72 to 72</div>
+        <label>
+          X: <input type="number" id="robotX" value="0" onchange="updateRobotPos()">
+        </label>
+        <label>
+          Y: <input type="number" id="robotY" value="0" onchange="updateRobotPos()">
+        </label>
+        <label>
+          Heading: <input type="number" id="robotHeading" value="0" onchange="updateRobotPos()">°
+        </label>
+        <label>
+          Size: <input type="number" id="robotSize" value="18" min="1" max="18" onchange="updateRobotSize()"> in
+        </label>
+      </div>
+
+      <div class="section">
+        <h3>Field Map</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          <button class="btn-map active" data-map="none" onclick="changeMap('none')">None</button>
+          <button class="btn-map" data-map="Juice-DECODE-Dark" onclick="changeMap('Juice-DECODE-Dark')">Dark</button>
+          <button class="btn-map" data-map="Juice-DECODE-Light" onclick="changeMap('Juice-DECODE-Light')">Light</button>
+          <button class="btn-map" data-map="Juice-DECODE-Black" onclick="changeMap('Juice-DECODE-Black')">Black</button>
+          <button class="btn-map" data-map="Juice-DECODE-Paper" onclick="changeMap('Juice-DECODE-Paper')">Paper</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Theme</h3>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn-theme active" data-theme="dark" onclick="changeTheme('dark')">🌙 Dark</button>
+          <button class="btn-theme" data-theme="light" onclick="changeTheme('light')">☀️ Light</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <label class="checkbox-label">
+          <input type="checkbox" id="showControlPoints" checked onchange="toggleControlPoints()">
+          Show Control Points
+        </label>
+      </div>
+
+      <div class="section">
+        <h3>Imported File</h3>
+        <div id="importedFileInfo" class="info-text">No file imported</div>
+        <button class="btn-clear" id="clearImportBtn" onclick="clearImportedFile()" style="width: 100%; margin-top: 0.5rem; display: none;">
+          🗑️ Clear Import
+        </button>
+      </div>
+
+      <div class="section">
+        <h3>Current Path</h3>
+        <div class="info-text" id="currentPathInfo">0 waypoints</div>
+        <div id="selectedPointPanel"></div>
+        <button class="btn-clear" id="deletePointBtn" onclick="deleteSelectedPoint()" disabled style="width: 100%; margin-top: 0.5rem; display: none;">
+          🗑️ Delete Selected Point
+        </button>
+      </div>
+
+      <div class="section">
+        <h3>Paths (<span id="pathCount">0</span>)</h3>
+        <div id="pathsList"></div>
+      </div>
+
+      <div class="instructions">
+        <p><strong>Instructions:</strong></p>
+        <ul>
+          <li>Upload or paste .java code to import paths</li>
+          <li>Click to add waypoints</li>
+          <li>Drag waypoints to move them</li>
+          <li>Select point and press Delete to remove</li>
+          <li>Drag robot to move start position</li>
+          <li>Drag control points to adjust curves</li>
+          <li>Click "Finalize Path" to save</li>
+          <li>Use "Animate" to preview motion</li>
+          <li>Export updates your original file!</li>
+          <li>Ctrl+Z to undo, Ctrl+Shift+Z to redo</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Code Modal -->
+  <div id="pasteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Paste Java Code</h2>
+        <button class="close-btn" onclick="closePasteModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="pasteTextarea" class="paste-textarea" placeholder="Paste your Roadrunner Java code here..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-clear" onclick="closePasteModal()" style="background: #6b7280;">Cancel</button>
+        <button class="btn-export" onclick="handlePastedCode()" style="background: #059669;">Import Code</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+  <script src="js/robot.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/path.js"></script>
+  <script src="js/import-export.js"></script>
+</body>
+</html>
